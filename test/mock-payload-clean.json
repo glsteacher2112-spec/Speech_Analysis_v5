@@ -1,0 +1,19 @@
+{
+  "transcript": "Our plan prioritizes clarity and consistent messaging across all channels. We highlight exclusivity and leverage word of mouth through ambassadors.",
+  "content": {
+    "clue_words_used": ["exclusivity", "word of mouth"],
+    "clue_words_missed": ["desirability", "scarcity", "status symbol"],
+    "used_count": 2,
+    "score": 8
+  },
+  "delivery": {
+    "fillers": [],
+    "filler_count": 0,
+    "score": 10
+  },
+  "proficiency": {
+    "grammar_errors": [],
+    "score": 10
+  },
+  "total_score": 28
+}
