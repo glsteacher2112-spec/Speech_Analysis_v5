@@ -1,0 +1,99 @@
+/* SAFETY GUARD: prevent black filled SVG if any rule misses */
+svg circle { fill: none; }
+
+/* Typography scope */
+#challenge_container, #user_transcript,
+#feedback_container, #agent_feedback, #score-wrap, .gauge .label,
+#scores_line, #total_score_line, #textFeedback, #grammar_fix {
+  font-family: 'Figtree', sans-serif;
+}
+
+/* Brand colors */
+:root{
+  --content:#A5A049;     /* green  */
+  --delivery:#E3C027;    /* yellow */
+  --proficiency:#C48114; /* red    */
+}
+
+/* White card container */
+.sa-wrap{
+  width:100%;
+  max-width:900px;
+  margin:0 auto;
+  background:#fff;
+  border:1px solid #000;
+  border-radius:14px;
+  padding:18px;
+  color:#000;
+}
+
+/* GAUGES: horizontal + centered */
+#score-wrap{
+  display:flex !important;
+  flex-direction:row !important;
+  justify-content:center !important;
+  align-items:center !important;
+  gap:16px;
+  flex-wrap:wrap;
+  margin:6px auto 10px;
+  width:100%;
+  text-align:center;
+}
+#score-wrap > .gauge{
+  flex:0 0 auto !important;
+  display:inline-flex;
+}
+.gauge{ position:relative; width:110px; height:110px; }
+.gauge svg{ transform:rotate(-90deg); width:110px; height:110px; }
+.gauge .bg{ stroke:#eee; fill:none; stroke-width:10; }
+.gauge .bar{ fill:none; stroke-width:10; stroke-linecap:round; }
+.gauge.content .bar{     stroke:var(--content); }
+.gauge.delivery .bar{    stroke:var(--delivery); }
+.gauge.proficiency .bar,
+.gauge.proficien .bar{   stroke:var(--proficiency); }
+/* Start full ring; JS animates to target */
+.gauge .bar{ stroke-dasharray:314; stroke-dashoffset:0; }
+.gauge .label{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; line-height:1.1;
+}
+.gauge .label .name{ display:block; font-size:14px; font-weight:700; }
+.gauge .label .score{ display:block; font-weight:700; font-size:18px; }
+
+/* Total score line */
+#total_score_line, #scores_line{
+  font-size:20px; font-weight:700; text-align:center; margin-top:6px;
+}
+
+/* Transcript block */
+#challenge_container{ margin:10px 0 14px; }
+#user_transcript{
+  background:#fff; border:1px solid #000; border-radius:14px;
+  padding:18px; min-height:160px; line-height:1.55; font-size:16px; color:#000;
+  overflow-wrap:anywhere; white-space:pre-wrap;
+}
+
+/* Highlights */
+.hl{ padding:0 2px; border-radius:4px; box-decoration-break:clone; }
+.hl.hl-content{     background:rgba(165,160,73,0.18);  outline:1px solid rgba(165,160,73,0.6); }
+.hl.hl-delivery{    background:rgba(227,192,39,0.18);  outline:1px solid rgba(227,192,39,0.6); }
+.hl.hl-proficiency{ background:rgba(196,129,20,0.18);  outline:1px solid rgba(196,129,20,0.6); }
+
+/* Feedback card with equal spacing */
+#feedback_container{ display:flex; flex-direction:column; }
+.agent-feedback{
+  background:#fff; border:1px solid #000; border-radius:14px;
+  padding:18px; color:#000; line-height:1.5; font-size:16px;
+  display:grid; gap:16px;
+}
+#textFeedback{ display:grid; gap:16px; }
+#textFeedback .fb-row, #grammar_fix .fb-row{ margin:0; }
+.fix-list{ margin:8px 0 0 18px; padding-left:0; }
+.fix-list li{ margin:0 0 8px 0; }
+#grammar_fix{ margin-top:0; }
+
+/* Hard visibility guards */
+#sa-wrap,#score-wrap,#challenge_container,#feedback_container{
+  display:block !important; visibility:visible !important; opacity:1 !important;
+}

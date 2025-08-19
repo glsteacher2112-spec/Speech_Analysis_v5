@@ -1,0 +1,196 @@
+{
+  "type": "client",
+  "name": "speechAnalysis",
+  "description": "Send speechAnalysis results to UI Container",
+  "disable_interruptions": true,
+  "force_pre_tool_speech": "auto",
+  "assignments": [],
+  "expects_response": false,
+  "response_timeout_secs": 1,
+  "parameters": [
+    {
+      "id": "proficiency",
+      "type": "object",
+      "description": "Proficiency analysis. Identify Use EXACT keys below.",
+      "properties": [
+        {
+          "id": "grammar_errors",
+          "type": "array",
+          "description": "Identify the fragmented grammar errors in the user speaking challenge transcript. For example, \"I goes to school\", tag \"goes\" as the error.",
+          "items": {
+            "id": "",
+            "type": "object",
+            "description": "Properties for each grammar_error",
+            "properties": [
+              {
+                "id": "explanation",
+                "type": "string",
+                "value_type": "llm_prompt",
+                "description": "explanation",
+                "dynamic_variable": "",
+                "constant_value": "",
+                "required": true
+              },
+              {
+                "id": "you_said",
+                "type": "string",
+                "value_type": "llm_prompt",
+                "description": "transcript error",
+                "dynamic_variable": "",
+                "constant_value": "",
+                "required": true
+              },
+              {
+                "id": "type",
+                "type": "string",
+                "value_type": "llm_prompt",
+                "description": "type of grammar error ",
+                "dynamic_variable": "",
+                "constant_value": "",
+                "required": true
+              },
+              {
+                "id": "correction",
+                "type": "string",
+                "value_type": "llm_prompt",
+                "description": "correction",
+                "dynamic_variable": "",
+                "constant_value": "",
+                "required": true
+              }
+            ],
+            "required": false,
+            "value_type": "llm_prompt"
+          },
+          "required": true,
+          "value_type": "llm_prompt"
+        },
+        {
+          "id": "score",
+          "type": "integer",
+          "value_type": "llm_prompt",
+          "description": "Score starts at 10 and deduct the following: (-1 point per grammar error) (-5 points if challenge is less than 30 seconds or under 50 words)",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true
+        }
+      ],
+      "required": true,
+      "value_type": "llm_prompt"
+    },
+    {
+      "id": "content",
+      "type": "object",
+      "description": " Content analysis: Identify which CLUE_WORDS appear (whole-word, case-insensitive). \n Use EXACT JSON keys.",
+      "properties": [
+        {
+          "id": "used_count",
+          "type": "integer",
+          "value_type": "llm_prompt",
+          "description": "The number of clue_words_used.",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true
+        },
+        {
+          "id": "score",
+          "type": "integer",
+          "value_type": "llm_prompt",
+          "description": "Start at 0 and count up. (+1 for each clue_words_used)",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true
+        },
+        {
+          "id": "clue_words_used",
+          "type": "array",
+          "description": "Array of strings. Whole-word, case-insensitive matches from CLUE_WORDS.",
+          "items": {
+            "id": "",
+            "type": "string",
+            "value_type": "llm_prompt",
+            "description": "Whole-word, case-insensitive matches from CLUE_WORDS.",
+            "dynamic_variable": "",
+            "constant_value": "",
+            "required": false
+          },
+          "required": true,
+          "value_type": "llm_prompt"
+        },
+        {
+          "id": "clue_words_missed",
+          "type": "array",
+          "description": "CLUE_WORDS not used/absent from the speaking challenge transcript.",
+          "items": {
+            "id": "",
+            "type": "string",
+            "value_type": "llm_prompt",
+            "description": "List separated by commas.",
+            "dynamic_variable": "",
+            "constant_value": "",
+            "required": false
+          },
+          "required": true,
+          "value_type": "llm_prompt"
+        }
+      ],
+      "required": true,
+      "value_type": "llm_prompt"
+    },
+    {
+      "id": "delivery",
+      "type": "object",
+      "description": "Detect filler words [\"um\",\"uh\",\"ah\",\"hmm\", ...].\n",
+      "properties": [
+        {
+          "id": "filler_count",
+          "type": "integer",
+          "value_type": "llm_prompt",
+          "description": "the number of filler words used",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true
+        },
+        {
+          "id": "score",
+          "type": "integer",
+          "value_type": "llm_prompt",
+          "description": "Start at 10 and deduct points: (-1 point filler word used), (-5 points if challenge is less than 30 seconds or under 50 words)",
+          "dynamic_variable": "",
+          "constant_value": "",
+          "required": true
+        },
+        {
+          "id": "fillers",
+          "type": "array",
+          "description": "Identify \"uh\", \"um\", \"ah\" case-insensitive",
+          "items": {
+            "id": "",
+            "type": "string",
+            "value_type": "llm_prompt",
+            "description": "case-insensitive",
+            "dynamic_variable": "",
+            "constant_value": "",
+            "required": false
+          },
+          "required": true,
+          "value_type": "llm_prompt"
+        }
+      ],
+      "required": true,
+      "value_type": "llm_prompt"
+    },
+    {
+      "id": "transcript",
+      "type": "string",
+      "value_type": "llm_prompt",
+      "description": "This is the user's entire speaking challenge transcript.",
+      "dynamic_variable": "",
+      "constant_value": "",
+      "required": true
+    }
+  ],
+  "dynamic_variables": {
+    "dynamic_variable_placeholders": {}
+  }
+}

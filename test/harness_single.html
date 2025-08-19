@@ -1,0 +1,393 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Speech Analysis Harness — Single File</title>
+  <style>
+    /* SAFETY: prevent black-filled SVGs */
+    svg circle{ fill:none; }
+
+    /* Typography + layout */
+    body{ margin:0; padding:0; background:#f6f6f6; }
+    .sa-wrap{
+      width:100%; max-width:900px; margin:18px auto;
+      background:#fff; border:1px solid #000; border-radius:14px; padding:18px; color:#000;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Figtree", sans-serif;
+    }
+
+    /* Dev bar */
+    #devbar{
+      max-width:900px; margin:12px auto; display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+      font-family: system-ui, sans-serif;
+    }
+    #devbar button{
+      padding:6px 10px; border:1px solid #000; border-radius:8px; background:#fff; cursor:pointer;
+    }
+    #status{ margin-left:auto; opacity:.75; }
+    #pasteBox{ display:none; width:100%; max-width:900px; margin:6px auto; }
+    #paste{
+      width:100%; min-height:160px; border:1px solid #000; border-radius:10px; padding:10px;
+      font-family: ui-monospace, Menlo, Consolas, monospace;
+    }
+
+    /* Brand colors */
+    :root{
+      --content:#A5A049; --delivery:#E3C027; --proficiency:#C48114;
+    }
+
+    /* Gauges */
+    #score-wrap{
+      display:flex; flex-direction:row; justify-content:center; align-items:center;
+      gap:16px; flex-wrap:wrap; margin:6px auto 10px; width:100%; text-align:center;
+    }
+    .gauge{ position:relative; width:110px; height:110px; display:inline-flex; }
+    .gauge svg{ transform:rotate(-90deg); width:110px; height:110px; }
+    .gauge .bg{ stroke:#eee; stroke-width:10; }
+    .gauge .bar{ stroke-width:10; stroke-linecap:round; }
+    .gauge.content .bar{     stroke:var(--content); }
+    .gauge.delivery .bar{    stroke:var(--delivery); }
+    .gauge.proficiency .bar{ stroke:var(--proficiency); }
+    .gauge .label{
+      position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; line-height:1.1;
+    }
+    .gauge .label .name{ font-size:14px; font-weight:700; }
+    .gauge .label .score{ font-weight:700; font-size:18px; }
+
+    /* Total line */
+    .total-line{ font-size:20px; font-weight:700; text-align:center; margin-top:6px; }
+
+    /* Transcript */
+    #challenge_container{ margin:10px 0 14px; }
+    #user_transcript{
+      background:#fff; border:1px solid #000; border-radius:14px;
+      padding:18px; min-height:160px; line-height:1.55; font-size:16px; color:#000;
+      overflow-wrap:anywhere; white-space:pre-wrap;
+    }
+
+    /* Highlights */
+    .hl{ padding:0 2px; border-radius:4px; box-decoration-break:clone; }
+    .hl.hl-content{     background:rgba(165,160,73,0.18);  outline:1px solid rgba(165,160,73,0.6); }
+    .hl.hl-delivery{    background:rgba(227,192,39,0.18);  outline:1px solid rgba(227,192,39,0.6); }
+    .hl.hl-proficiency{ background:rgba(196,129,20,0.18);  outline:1px solid rgba(196,129,20,0.6); }
+
+    /* Feedback card */
+    #feedback_container{ display:flex; flex-direction:column; }
+    .agent-feedback{
+      background:#fff; border:1px solid #000; border-radius:14px;
+      padding:18px; color:#000; line-height:1.5; font-size:16px;
+      display:grid; gap:16px;
+    }
+    #textFeedback{ display:grid; gap:16px; }
+    #textFeedback .fb-row, #grammar_fix .fb-row{ margin:0; }
+    .fix-list{ margin:8px 0 0 18px; padding-left:0; }
+    .fix-list li{ margin:0 0 8px 0; }
+  </style>
+</head>
+<body>
+
+  <!-- Dev bar with fetch + built-in fallbacks -->
+  <div id="devbar">
+    <button data-mock="./mock-payload.json">Load Mock A (fetch)</button>
+    <button data-mock="./mock-payload-clean.json">Load Mock B (fetch)</button>
+    <button id="useBuiltInA">Use Built-in A</button>
+    <button id="useBuiltInB">Use Built-in B</button>
+    <button id="togglePaste">Paste JSON…</button>
+    <button id="renderPaste">Render Pasted</button>
+    <span id="status">Ready</span>
+  </div>
+
+  <!-- Paste area -->
+  <div id="pasteBox"><textarea id="paste" placeholder='Paste payload JSON here…'></textarea></div>
+
+  <!-- App container -->
+  <div id="sa-wrap" class="sa-wrap">
+    <div id="score-wrap">
+      <div class="gauge content" id="gaugeC" aria-label="Content score">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg"  cx="60" cy="60" r="50"></circle>
+          <circle class="bar" cx="60" cy="60" r="50"></circle>
+        </svg>
+        <div class="label"><span class="name">Content</span><span class="score">0/10</span></div>
+      </div>
+      <div class="gauge delivery" id="gaugeD" aria-label="Delivery score">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg"  cx="60" cy="60" r="50"></circle>
+          <circle class="bar" cx="60" cy="60" r="50"></circle>
+        </svg>
+        <div class="label"><span class="name">Delivery</span><span class="score">0/10</span></div>
+      </div>
+      <div class="gauge proficiency" id="gaugeP" aria-label="Proficiency score">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg"  cx="60" cy="60" r="50"></circle>
+          <circle class="bar" cx="60" cy="60" r="50"></circle>
+        </svg>
+        <div class="label"><span class="name">Proficiency</span><span class="score">0/10</span></div>
+      </div>
+    </div>
+    <div id="total_score_line" class="total-line">Total Score: 0/30</div>
+    <div id="challenge_container"><div id="user_transcript">Your speaking challenge will appear here:</div></div>
+    <div id="feedback_container">
+      <div id="agent_feedback" class="agent-feedback">
+        <div id="textFeedback">
+          <div class="fb-row"><strong>Missing words:</strong> —</div>
+          <div class="fb-row"><strong>Filler words:</strong> 0</div>
+        </div>
+        <div id="grammar_fix">
+          <div class="fb-row"><strong>Errors:</strong> None 🎉</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  // ----------------- Helpers -----------------
+  const $ = s => document.querySelector(s);
+  function sanitizeHTML(str){
+    return String(str || "")
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+      .replace(/"/g,"&quot;").replace(/'/g,"&#039;");
+  }
+  function toList(csv){
+    if (Array.isArray(csv)) return csv.filter(Boolean).map(String);
+    return String(csv || "")
+      .split(",")
+      .map(s => s.replace(/^[\["'\s]+|[\]"'\s]+$/g, "").trim())
+      .filter(Boolean);
+  }
+  function ensureArray(v){ return Array.isArray(v) ? v : toList(v); }
+  function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+  function highlightFragments(text, frags, className){
+    const items = (frags || []).map(s => String(s || '')).filter(Boolean).sort((a,b)=>b.length-a.length);
+    if(!items.length) return text;
+    let html = text;
+    for(const f of items){
+      const isToken = /^\w+$/.test(f);
+      const pattern = isToken ? `\\b${escapeRegExp(f)}\\b` : escapeRegExp(f);
+      const rx = new RegExp(pattern, 'gi');
+      html = html.replace(rx, m => `<span class="hl ${className}">${m}</span>`);
+    }
+    return html;
+  }
+
+  // ---------- Validator ----------
+  function validatePayload(p){
+    const errs = [];
+    const needType = (obj, key, type) => {
+      const v = obj?.[key];
+      const ok = (type === 'array') ? Array.isArray(v) : typeof v === type;
+      if (!ok) errs.push(`Missing or wrong type: ${key} (${type})`);
+    };
+    if (!p || typeof p !== 'object') { errs.push('payload not an object'); return errs; }
+
+    needType(p, 'transcript', 'string');
+
+    needType(p, 'content', 'object');
+    needType(p.content || {}, 'clue_words_used', 'array');
+    needType(p.content || {}, 'clue_words_missed', 'array');
+    needType(p.content || {}, 'used_count', 'number');
+    needType(p.content || {}, 'score', 'number');
+
+    needType(p, 'delivery', 'object');
+    needType(p.delivery || {}, 'fillers', 'array');
+    needType(p.delivery || {}, 'filler_count', 'number');
+    needType(p.delivery || {}, 'score', 'number');
+
+    needType(p, 'proficiency', 'object');
+    if (!Array.isArray(p.proficiency?.grammar_errors)) errs.push('grammar_errors must be an array');
+    needType(p.proficiency || {}, 'score', 'number');
+
+    return errs;
+  }
+
+  // ---------- Gauges ----------
+  function gaugeCircumference(gauge){
+    const rEl = gauge && gauge.querySelector('circle.bar');
+    const r   = Number(rEl && rEl.getAttribute('r')) || 50;
+    return 2 * Math.PI * r; // ~314 when r=50
+  }
+  function setGauge(gauge, value, max=10, duration=900){
+    if(!gauge) return;
+    const bar   = gauge.querySelector('circle.bar');
+    const label = gauge.querySelector('.label .score');
+    const C     = gaugeCircumference(gauge);
+    const val   = Math.max(0, Math.min(max, Number(value) || 0));
+    const target= C * (1 - val / max);
+    if(label) label.textContent = `${val}/10`;
+    bar.style.transition = 'none';
+    bar.style.strokeDasharray = String(C);
+    bar.style.strokeDashoffset = String(C);
+    requestAnimationFrame(()=>{
+      bar.style.transition = `stroke-dashoffset ${duration}ms ease`;
+      bar.style.strokeDashoffset = String(target);
+    });
+  }
+
+  // ---------- Renderer ----------
+  function MODai_renderSpeechAnalysis(payload){
+    const problems = validatePayload(payload);
+    if (problems.length) console.warn('[schema-validate]', problems);
+
+    if(!payload || typeof payload !== 'object'){
+      console.warn('[speechAnalysis] Invalid payload', payload);
+      return;
+    }
+
+    const transcript  = String(payload.transcript || '');
+    const content     = payload.content || {};
+    const delivery    = payload.delivery || {};
+    const proficiency = payload.proficiency || {};
+
+    const cluesUsed   = ensureArray(content.clue_words_used);
+    const cluesMissed = ensureArray(content.clue_words_missed);
+    const usedCount   = Number(content.used_count || 0);
+    const scoreC      = Number(content.score || 0);
+
+    const fillers     = ensureArray(delivery.fillers);
+    const fillerCount = Number(delivery.filler_count || fillers.length || 0);
+    const scoreD      = Number(delivery.score || 0);
+
+    const grammarErrs = Array.isArray(proficiency.grammar_errors) ? proficiency.grammar_errors : [];
+    const scoreP      = Number(proficiency.score || 0);
+
+    const totalScore  = Number(payload.total_score ?? (scoreC + scoreD + scoreP));
+
+    // 1) Gauges
+    setGauge($('#gaugeC'), scoreC);
+    setGauge($('#gaugeD'), scoreD);
+    setGauge($('#gaugeP'), scoreP);
+    const totalLine = $('#total_score_line');
+    if(totalLine) totalLine.textContent = `Total Score: ${totalScore}/30`;
+
+    // 2) Transcript
+    const tEl = $('#user_transcript');
+    if(tEl){
+      let safe = sanitizeHTML(transcript || 'Your speaking challenge will appear here:');
+      const errFrags = grammarErrs.map(e => String(e?.you_said || '')).filter(Boolean);
+      safe = highlightFragments(safe, errFrags, 'hl-proficiency');
+      safe = highlightFragments(safe, fillers, 'hl-delivery');
+      safe = highlightFragments(safe, cluesUsed, 'hl-content');
+      tEl.innerHTML = safe;
+    }
+
+    // 3) Feedback
+    const fb = $('#textFeedback');
+    if(fb){
+      const missedHTML = cluesMissed.length
+        ? `<div class="fb-row"><strong>Missing words:</strong> ${cluesMissed.map(sanitizeHTML).join(', ')}</div>`
+        : `<div class="fb-row"><strong>Missing words:</strong> None 🎉</div>`;
+      const fillerHTML = `<div class="fb-row"><strong>Filler words:</strong> ${fillerCount}</div>`;
+      fb.innerHTML = missedHTML + fillerHTML;
+    }
+
+    const gfBox = $('#grammar_fix');
+    if(gfBox){
+      if(grammarErrs.length){
+        const items = grammarErrs.map(e=>{
+          const t = sanitizeHTML(e?.type || 'Language');
+          const y = sanitizeHTML(String(e?.you_said || ''));
+          const c = sanitizeHTML(String(e?.correction || ''));
+          const x = sanitizeHTML(e?.explanation || '');
+          return `<li><div>You said "${y}". Correction → "${c}".</div><div><em>${t} error. ${x}</em></div></li>`;
+        }).join('');
+        gfBox.innerHTML = `<div class="fb-row"><strong>Errors:</strong></div><ul class="fix-list">${items}</ul>`;
+      } else {
+        gfBox.innerHTML = `<div class="fb-row"><strong>Errors:</strong> None 🎉</div>`;
+      }
+    }
+  }
+
+  // ------------- Dev bar logic -------------
+  const statusEl = $('#status');
+
+  // Built-in mocks (fallbacks so you always see something)
+  const MOCK_A = {
+    "transcript": "The other company that I know are struggling because of supply issues. Um, they, um, paused production.",
+    "content": {
+      "clue_words_used": ["exclusivity", "word of mouth"],
+      "clue_words_missed": ["desirability", "scarcity", "status symbol"],
+      "used_count": 2,
+      "score": 8
+    },
+    "delivery": {
+      "fillers": ["um", "um"],
+      "filler_count": 2,
+      "score": 8
+    },
+    "proficiency": {
+      "grammar_errors": [
+        {
+          "type": "SV agreement",
+          "you_said": "company that I know are struggling",
+          "correction": "company that I know is struggling",
+          "explanation": "Singular subject takes singular verb."
+        }
+      ],
+      "score": 7
+    },
+    "total_score": 23
+  };
+
+  const MOCK_B = {
+    "transcript": "Our plan prioritizes clarity and consistent messaging across all channels. We highlight exclusivity and leverage word of mouth through ambassadors.",
+    "content": {
+      "clue_words_used": ["exclusivity", "word of mouth"],
+      "clue_words_missed": ["desirability", "scarcity", "status symbol"],
+      "used_count": 2,
+      "score": 8
+    },
+    "delivery": {
+      "fillers": [],
+      "filler_count": 0,
+      "score": 10
+    },
+    "proficiency": {
+      "grammar_errors": [],
+      "score": 10
+    },
+    "total_score": 28
+  };
+
+  function loadMock(path, fallback){
+    statusEl.textContent = 'Loading ' + path + ' …';
+    fetch(path).then(r=>{
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }).then(data=>{
+      MODai_renderSpeechAnalysis(data);
+      statusEl.textContent = 'Rendered ' + path;
+    }).catch(err=>{
+      console.warn('Fetch failed, using fallback:', err.message);
+      MODai_renderSpeechAnalysis(fallback);
+      statusEl.textContent = 'Fetch failed; rendered built-in fallback for ' + path;
+    });
+  }
+
+  document.querySelectorAll('[data-mock]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const path = btn.getAttribute('data-mock');
+      if(path.includes('clean')) loadMock(path, MOCK_B);
+      else loadMock(path, MOCK_A);
+    });
+  });
+  $('#useBuiltInA').addEventListener('click', ()=>{ MODai_renderSpeechAnalysis(MOCK_A); statusEl.textContent='Rendered built-in A'; });
+  $('#useBuiltInB').addEventListener('click', ()=>{ MODai_renderSpeechAnalysis(MOCK_B); statusEl.textContent='Rendered built-in B'; });
+  $('#togglePaste').addEventListener('click', ()=>{
+    const box = $('#pasteBox'); box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+  });
+  $('#renderPaste').addEventListener('click', ()=>{
+    try{
+      const txt = $('#paste').value || '{}';
+      const data = JSON.parse(txt);
+      MODai_renderSpeechAnalysis(data);
+      statusEl.textContent = 'Rendered pasted JSON';
+    }catch(e){
+      console.error(e); statusEl.textContent = 'Invalid JSON';
+    }
+  });
+
+  // Auto-render built-in A on first load so you always see UI
+  MODai_renderSpeechAnalysis(MOCK_A);
+  </script>
+</body>
+</html>
