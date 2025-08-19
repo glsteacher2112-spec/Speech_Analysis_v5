@@ -30,11 +30,68 @@
     return html;
   }
 
+  // ---------- Lightweight validator ----------
+  function validatePayload(p){
+    const errs = [];
+    const needType = (obj, key, type) => {
+      const v = obj?.[key];
+      const ok = (type === 'array') ? Array.isArray(v) : typeof v === type;
+      if (!ok) errs.push(`Missing or wrong type: ${key} (${type})`);
+    };
+    if (!p || typeof p !== 'object') { errs.push('payload not an object'); return errs; }
+
+    needType(p, 'transcript', 'string');
+
+    needType(p, 'content', 'object');
+    needType(p.content || {}, 'clue_words_used', 'array');
+    needType(p.content || {}, 'clue_words_missed', 'array');
+    needType(p.content || {}, 'used_count', 'number');
+    needType(p.content || {}, 'score', 'number');
+
+    needType(p, 'delivery', 'object');
+    needType(p.delivery || {}, 'fillers', 'array');
+    needType(p.delivery || {}, 'filler_count', 'number');
+    needType(p.delivery || {}, 'score', 'number');
+
+    needType(p, 'proficiency', 'object');
+    if (!Array.isArray(p.proficiency?.grammar_errors)) errs.push('grammar_errors must be an array');
+    needType(p.proficiency || {}, 'score', 'number');
+
+    return errs;
+  }
+
+  // ---------- Diff: extract ONLY the changed part between you_said and correction ----------
+  // Example: you_said="I goes to school", correction="I go to school" -> returns ["goes"]
+  function extractChangedFragment(you, corr){
+    you  = String(you  ?? '');
+    corr = String(corr ?? '');
+    if(!you) return [];
+    if(!corr) return [you];
+
+    let start = 0;
+    const yLen = you.length, cLen = corr.length;
+
+    // Walk from the start while characters match
+    while (start < yLen && start < cLen && you[start] === corr[start]) start++;
+
+    // Walk from the end while characters match (after start)
+    let endY = yLen - 1, endC = cLen - 1;
+    while (endY >= start && endC >= start && you[endY] === corr[endC]) { endY--; endC--; }
+
+    // Slice the differing middle from the original
+    const frag = you.slice(start, endY + 1);
+    const trimmed = frag.trim();
+
+    // Fallback: if diff is empty (identical strings), return whole 'you'
+    if (!trimmed) return [you];
+    return [trimmed];
+  }
+
   // Gauges
   function gaugeCircumference(gauge){
     const rEl = gauge && gauge.querySelector('circle.bar');
     const r   = Number(rEl && rEl.getAttribute('r')) || 50;
-    return 2 * Math.PI * r; // ~314 when r=50
+    return 2 * Math.PI * r;
   }
   function setGauge(gauge, value, max=10, duration=900){
     if(!gauge) return;
@@ -53,8 +110,11 @@
     });
   }
 
-  // ---------- Renderer (Option A1) ----------
+  // ---------- Renderer ----------
   function renderSpeechAnalysis(payload){
+    const problems = validatePayload(payload);
+    if (problems.length) console.warn('[schema-validate]', problems);
+
     if(!payload || typeof payload !== 'object'){
       console.warn('[speechAnalysis] Invalid payload', payload);
       return;
@@ -86,11 +146,17 @@
     const totalLine = $('#total_score_line');
     if(totalLine) totalLine.textContent = `Total Score: ${totalScore}/30`;
 
-    // 2) Transcript (use exact span given in you_said)
+    // 2) Transcript highlights
     const tEl = $('#user_transcript');
     if(tEl){
       let safe = sanitizeHTML(transcript || 'Your speaking challenge will appear here:');
-      const errFrags = grammarErrs.map(e => String(e?.you_said || '')).filter(Boolean);
+
+      // NEW: build minimal error fragments by diffing you_said vs correction
+      const errFrags = grammarErrs
+        .flatMap(e => extractChangedFragment(String(e?.you_said || ''), String(e?.correction || '')))
+        .filter(Boolean);
+
+      // Order: errors → fillers → clue words
       safe = highlightFragments(safe, errFrags, 'hl-proficiency');
       safe = highlightFragments(safe, fillers, 'hl-delivery');
       safe = highlightFragments(safe, cluesUsed, 'hl-content');
@@ -107,7 +173,7 @@
       fb.innerHTML = missedHTML + fillerHTML;
     }
 
-    // Errors (bullets)
+    // 4) Errors list (labels bolded)
     const gfBox = $('#grammar_fix');
     if(gfBox){
       if(grammarErrs.length){
@@ -116,7 +182,10 @@
           const y = sanitizeHTML(String(e?.you_said || ''));
           const c = sanitizeHTML(String(e?.correction || ''));
           const x = sanitizeHTML(e?.explanation || '');
-          return `<li><div>You said "${y}". Correction → "${c}".</div><div><em>${t} error. ${x}</em></div></li>`;
+          return `<li>
+            <div><strong>You said</strong> "${y}". <strong>Correction</strong> → "${c}".</div>
+            <div><em>${t} error. ${x}</em></div>
+          </li>`;
         }).join('');
         gfBox.innerHTML = `<div class="fb-row"><strong>Errors:</strong></div><ul class="fix-list">${items}</ul>`;
       } else {
