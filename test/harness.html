@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Speech Analysis Harness</title>
+  <link rel="stylesheet" href="../web/styles.css"/>
+  <style>
+    svg circle{fill:none}
+    #devbar{max-width:900px;margin:12px auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-family:system-ui,sans-serif}
+    #devbar button{padding:6px 10px;border:1px solid #000;border-radius:8px;background:#fff;cursor:pointer}
+    #status{margin-left:auto;opacity:.7}
+    #pasteBox{display:none;width:100%;max-width:900px;margin:6px auto}
+    #paste{width:100%;min-height:160px;border:1px solid #000;border-radius:10px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace}
+  </style>
+</head>
+<body>
+  <div id="devbar">
+    <button data-mock="./mock-payload.json">Load Mock A</button>
+    <button data-mock="./mock-payload-clean.json">Load Mock B</button>
+    <button id="togglePaste">Paste JSON…</button>
+    <button id="renderPaste">Render Pasted</button>
+    <span id="status">Ready</span>
+  </div>
+
+  <div id="pasteBox"><textarea id="paste" placeholder='Paste payload JSON here…'></textarea></div>
+
+  <!-- App container (same as your container.html) -->
+  <div id="sa-wrap" class="sa-wrap">
+    <div id="score-wrap">
+      <div class="gauge content" id="gaugeC" aria-label="Content score">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg"  cx="60" cy="60" r="50"></circle>
+          <circle class="bar" cx="60" cy="60" r="50"></circle>
+        </svg>
+        <div class="label"><span class="name">Content</span><span class="score">0/10</span></div>
+      </div>
+      <div class="gauge delivery" id="gaugeD" aria-label="Delivery score">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg"  cx="60" cy="60" r="50"></circle>
+          <circle class="bar" cx="60" cy="60" r="50"></circle>
+        </svg>
+        <div class="label"><span class="name">Delivery</span><span class="score">0/10</span></div>
+      </div>
+      <div class="gauge proficiency" id="gaugeP" aria-label="Proficiency score">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="bg"  cx="60" cy="60" r="50"></circle>
+          <circle class="bar" cx="60" cy="60" r="50"></circle>
+        </svg>
+        <div class="label"><span class="name">Proficiency</span><span class="score">0/10</span></div>
+      </div>
+    </div>
+    <div id="total_score_line" class="total-line">Total Score: 0/30</div>
+    <div id="challenge_container"><div id="user_transcript">Your speaking challenge will appear here:</div></div>
+    <div id="feedback_container">
+      <div id="agent_feedback" class="agent-feedback">
+        <div id="textFeedback">
+          <div class="fb-row"><strong>Missing words:</strong> —</div>
+          <div class="fb-row"><strong>Filler words:</strong> 0</div>
+        </div>
+        <div id="grammar_fix"><div class="fb-row"><strong>Errors:</strong> None 🎉</div></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../web/app.js"></script>
+  <script>
+    const $ = s => document.querySelector(s);
+    const statusEl = $('#status');
+
+    function loadMock(path){
+      statusEl.textContent = 'Loading ' + path + ' …';
+      fetch(path)
+        .then(r => r.json())
+        .then(d => { window.MODai_renderSpeechAnalysis(d); statusEl.textContent = 'Rendered ' + path; })
+        .catch(e => { console.error(e); statusEl.textContent = 'Failed to load ' + path; });
+    }
+
+    document.querySelectorAll('[data-mock]')
+      .forEach(btn => btn.addEventListener('click', () => loadMock(btn.getAttribute('data-mock'))));
+
+    $('#togglePaste').addEventListener('click', () => {
+      const box = $('#pasteBox');
+      box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+    });
+
+    $('#renderPaste').addEventListener('click', () => {
+      try {
+        const data = JSON.parse($('#paste').value || '{}');
+        window.MODai_renderSpeechAnalysis(data);
+        statusEl.textContent = 'Rendered pasted JSON';
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = 'Invalid JSON';
+      }
+    });
+
+    // Auto-load Mock A on open
+    loadMock('./mock-payload.json');
+  </script>
+</body>
+</html>
