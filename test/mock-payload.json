@@ -1,0 +1,26 @@
+{
+  "transcript": "The other company that I know are struggling because of supply issues. Um, they, um, paused production.",
+  "content": {
+    "clue_words_used": ["exclusivity", "word of mouth"],
+    "clue_words_missed": ["desirability", "scarcity", "status symbol"],
+    "used_count": 2,
+    "score": 8
+  },
+  "delivery": {
+    "fillers": ["um", "um"],
+    "filler_count": 2,
+    "score": 8
+  },
+  "proficiency": {
+    "grammar_errors": [
+      {
+        "type": "SV agreement",
+        "you_said": "company that I know are struggling",
+        "correction": "company that I know is struggling",
+        "explanation": "Singular subject takes singular verb."
+      }
+    ],
+    "score": 7
+  },
+  "total_score": 23
+}

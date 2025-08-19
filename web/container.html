@@ -1,0 +1,58 @@
+<!-- MODai Speech Analysis (single container card) -->
+<div id="sa-wrap" class="sa-wrap">
+
+  <!-- 1) Gauges (side-by-side) -->
+  <div id="score-wrap">
+    <!-- Content -->
+    <div class="gauge content" id="gaugeC" aria-label="Content score">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="bg"  cx="60" cy="60" r="50"></circle>
+        <circle class="bar" cx="60" cy="60" r="50"></circle>
+      </svg>
+      <div class="label">
+        <span class="name">Content</span>
+        <span class="score">0/10</span>
+      </div>
+    </div>
+
+    <!-- Delivery -->
+    <div class="gauge delivery" id="gaugeD" aria-label="Delivery score">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="bg"  cx="60" cy="60" r="50"></circle>
+        <circle class="bar" cx="60" cy="60" r="50"></circle>
+      </svg>
+      <div class="label">
+        <span class="name">Delivery</span>
+        <span class="score">0/10</span>
+      </div>
+    </div>
+
+    <!-- Proficiency -->
+    <div class="gauge proficiency" id="gaugeP" aria-label="Proficiency score">
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle class="bg"  cx="60" cy="60" r="50"></circle>
+        <circle class="bar" cx="60" cy="60" r="50"></circle>
+      </svg>
+      <div class="label">
+        <span class="name">Proficiency</span>
+        <span class="score">0/10</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="total_score_line" class="total-line">Total Score: 0/30</div>
+
+  <!-- 2) Transcript -->
+  <div id="challenge_container">
+    <div id="user_transcript">Your speaking challenge will appear here:</div>
+  </div>
+
+  <!-- 3) Feedback -->
+  <div id="feedback_container">
+    <div id="agent_feedback" class="agent-feedback">
+      <div id="textFeedback">Your feedback will appear here:</div>
+      <div id="grammar_fix"></div>
+    </div>
+  </div>
+
+</div>
