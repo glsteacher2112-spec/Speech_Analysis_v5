@@ -30,7 +30,7 @@
     return html;
   }
 
-  // ---------- Lightweight validator ----------
+  // ---------- Validator (lightweight) ----------
   function validatePayload(p){
     const errs = [];
     const needType = (obj, key, type) => {
@@ -57,11 +57,12 @@
     if (!Array.isArray(p.proficiency?.grammar_errors)) errs.push('grammar_errors must be an array');
     needType(p.proficiency || {}, 'score', 'number');
 
+    // total_score optional
     return errs;
   }
 
-  // ---------- Diff: extract ONLY the changed part between you_said and correction ----------
-  // Example: you_said="I goes to school", correction="I go to school" -> returns ["goes"]
+  // ---------- Minimal diff between you_said and correction ----------
+  // Example: you="I goes to school", corr="I go to school" -> ["goes"]
   function extractChangedFragment(you, corr){
     you  = String(you  ?? '');
     corr = String(corr ?? '');
@@ -71,27 +72,22 @@
     let start = 0;
     const yLen = you.length, cLen = corr.length;
 
-    // Walk from the start while characters match
     while (start < yLen && start < cLen && you[start] === corr[start]) start++;
 
-    // Walk from the end while characters match (after start)
     let endY = yLen - 1, endC = cLen - 1;
     while (endY >= start && endC >= start && you[endY] === corr[endC]) { endY--; endC--; }
 
-    // Slice the differing middle from the original
     const frag = you.slice(start, endY + 1);
     const trimmed = frag.trim();
-
-    // Fallback: if diff is empty (identical strings), return whole 'you'
-    if (!trimmed) return [you];
+    if (!trimmed) return [you]; // identical strings fallback
     return [trimmed];
   }
 
-  // Gauges
+  // ---------- Gauges ----------
   function gaugeCircumference(gauge){
     const rEl = gauge && gauge.querySelector('circle.bar');
     const r   = Number(rEl && rEl.getAttribute('r')) || 50;
-    return 2 * Math.PI * r;
+    return 2 * Math.PI * r; // ~314 when r=50
   }
   function setGauge(gauge, value, max=10, duration=900){
     if(!gauge) return;
@@ -146,12 +142,11 @@
     const totalLine = $('#total_score_line');
     if(totalLine) totalLine.textContent = `Total Score: ${totalScore}/30`;
 
-    // 2) Transcript highlights
+    // 2) Transcript (highlight only the changed error fragment)
     const tEl = $('#user_transcript');
     if(tEl){
       let safe = sanitizeHTML(transcript || 'Your speaking challenge will appear here:');
 
-      // NEW: build minimal error fragments by diffing you_said vs correction
       const errFrags = grammarErrs
         .flatMap(e => extractChangedFragment(String(e?.you_said || ''), String(e?.correction || '')))
         .filter(Boolean);
