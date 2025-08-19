@@ -1,5 +1,5 @@
 (function(){
-  // ---------- Helpers ----------
+  // ----------------- Helpers -----------------
   function $(sel){ return document.querySelector(sel); }
   function sanitizeHTML(str){
     return String(str || "")
@@ -16,7 +16,23 @@
   function ensureArray(v){ return Array.isArray(v) ? v : toList(v); }
   function escapeRegExp(s){ return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
-  // Whole-word highlighter (if token-like); otherwise substring
+  // ---------- Minimal diff between you_said and correction ----------
+  // Example: you="I goes to school", corr="I go to school" -> ["goes"]
+  function extractChangedFragment(you, corr){
+    you  = String(you  ?? '');
+    corr = String(corr ?? '');
+    if(!you)  return [];
+    if(!corr) return [you];
+    let i = 0, yL = you.length, cL = corr.length;
+    while(i < yL && i < cL && you[i] === corr[i]) i++;
+    let y = yL - 1, c = cL - 1;
+    while(y >= i && c >= i && you[y] === corr[c]) { y--; c--; }
+    const frag = you.slice(i, y + 1).trim();
+    return frag ? [frag] : [you]; // fallback if identical
+  }
+
+  // ---------- Highlighter ----------
+  // Whole-word for token-like matches; substring for phrases/non-word fragments.
   function highlightFragments(text, frags, className){
     const items = (frags || []).map(s => String(s || '')).filter(Boolean).sort((a,b)=>b.length-a.length);
     if(!items.length) return text;
@@ -30,60 +46,7 @@
     return html;
   }
 
-  // ---------- Validator (lightweight) ----------
-  function validatePayload(p){
-    const errs = [];
-    const needType = (obj, key, type) => {
-      const v = obj?.[key];
-      const ok = (type === 'array') ? Array.isArray(v) : typeof v === type;
-      if (!ok) errs.push(`Missing or wrong type: ${key} (${type})`);
-    };
-    if (!p || typeof p !== 'object') { errs.push('payload not an object'); return errs; }
-
-    needType(p, 'transcript', 'string');
-
-    needType(p, 'content', 'object');
-    needType(p.content || {}, 'clue_words_used', 'array');
-    needType(p.content || {}, 'clue_words_missed', 'array');
-    needType(p.content || {}, 'used_count', 'number');
-    needType(p.content || {}, 'score', 'number');
-
-    needType(p, 'delivery', 'object');
-    needType(p.delivery || {}, 'fillers', 'array');
-    needType(p.delivery || {}, 'filler_count', 'number');
-    needType(p.delivery || {}, 'score', 'number');
-
-    needType(p, 'proficiency', 'object');
-    if (!Array.isArray(p.proficiency?.grammar_errors)) errs.push('grammar_errors must be an array');
-    needType(p.proficiency || {}, 'score', 'number');
-
-    // total_score optional
-    return errs;
-  }
-
-  // ---------- Minimal diff between you_said and correction ----------
-  // Example: you="I goes to school", corr="I go to school" -> ["goes"]
-  function extractChangedFragment(you, corr){
-    you  = String(you  ?? '');
-    corr = String(corr ?? '');
-    if(!you) return [];
-    if(!corr) return [you];
-
-    let start = 0;
-    const yLen = you.length, cLen = corr.length;
-
-    while (start < yLen && start < cLen && you[start] === corr[start]) start++;
-
-    let endY = yLen - 1, endC = cLen - 1;
-    while (endY >= start && endC >= start && you[endY] === corr[endC]) { endY--; endC--; }
-
-    const frag = you.slice(start, endY + 1);
-    const trimmed = frag.trim();
-    if (!trimmed) return [you]; // identical strings fallback
-    return [trimmed];
-  }
-
-  // ---------- Gauges ----------
+  // ----------------- Gauges -----------------
   function gaugeCircumference(gauge){
     const rEl = gauge && gauge.querySelector('circle.bar');
     const r   = Number(rEl && rEl.getAttribute('r')) || 50;
@@ -96,7 +59,10 @@
     const C     = gaugeCircumference(gauge);
     const val   = Math.max(0, Math.min(max, Number(value) || 0));
     const target= C * (1 - val / max);
+
     if(label) label.textContent = `${val}/10`;
+
+    // CSS starts full; reset to empty then animate to target
     bar.style.transition = 'none';
     bar.style.strokeDasharray = String(C);
     bar.style.strokeDashoffset = String(C);
@@ -106,11 +72,8 @@
     });
   }
 
-  // ---------- Renderer ----------
+  // ----------------- Renderer (Option A1) -----------------
   function renderSpeechAnalysis(payload){
-    const problems = validatePayload(payload);
-    if (problems.length) console.warn('[schema-validate]', problems);
-
     if(!payload || typeof payload !== 'object'){
       console.warn('[speechAnalysis] Invalid payload', payload);
       return;
@@ -123,7 +86,6 @@
 
     const cluesUsed   = ensureArray(content.clue_words_used);
     const cluesMissed = ensureArray(content.clue_words_missed);
-    const usedCount   = Number(content.used_count || 0);
     const scoreC      = Number(content.score || 0);
 
     const fillers     = ensureArray(delivery.fillers);
@@ -142,33 +104,34 @@
     const totalLine = $('#total_score_line');
     if(totalLine) totalLine.textContent = `Total Score: ${totalScore}/30`;
 
-    // 2) Transcript (highlight only the changed error fragment)
+    // 2) Transcript highlights
     const tEl = $('#user_transcript');
     if(tEl){
       let safe = sanitizeHTML(transcript || 'Your speaking challenge will appear here:');
 
+      // Minimal fragment from each grammar error (diff you_said vs correction)
       const errFrags = grammarErrs
         .flatMap(e => extractChangedFragment(String(e?.you_said || ''), String(e?.correction || '')))
         .filter(Boolean);
 
-      // Order: errors → fillers → clue words
+      // Order: grammar errors → fillers → clue words
       safe = highlightFragments(safe, errFrags, 'hl-proficiency');
       safe = highlightFragments(safe, fillers, 'hl-delivery');
       safe = highlightFragments(safe, cluesUsed, 'hl-content');
       tEl.innerHTML = safe;
     }
 
-    // 3) Feedback (Missing words, Filler count)
+    // 3) Feedback
     const fb = $('#textFeedback');
     if(fb){
       const missedHTML = cluesMissed.length
-        ? `<div class="fb-row"><strong>Missing words:</strong> ${cluesMissed.map(sanitizeHTML).join(', ')}</div>`
-        : `<div class="fb-row"><strong>Missing words:</strong> None 🎉</div>`;
+        ? `<div class="fb-row"><strong>Missed words:</strong> ${cluesMissed.map(sanitizeHTML).join(', ')}</div>`
+        : `<div class="fb-row"><strong>Missed words:</strong> None 🎉</div>`;
       const fillerHTML = `<div class="fb-row"><strong>Filler words:</strong> ${fillerCount}</div>`;
       fb.innerHTML = missedHTML + fillerHTML;
     }
 
-    // 4) Errors list (labels bolded)
+    // 4) Grammar fixes (labels bold)
     const gfBox = $('#grammar_fix');
     if(gfBox){
       if(grammarErrs.length){
@@ -189,6 +152,73 @@
     }
   }
 
-  // Expose for the test harness
+  // ----------------- Legacy shims (unchanged) -----------------
+  function renderTranscript(args){
+    const box = $('#user_transcript');
+    if(box) box.textContent = args && (args.text || args.transcript || 'Your speaking challenge will appear here:') || 'Your speaking challenge will appear here:';
+  }
+  function renderFeedback(payload){
+    try{ renderSpeechAnalysis(payload); }catch(e){ console.error('[challengeFeedback shim] render error:', e); }
+  }
+
+  // ----------------- Registration (unchanged) -----------------
+  function attachListener(target){
+    if(!target) return;
+    if(target.getAttribute('data-modai-tools-installed') === '1') return;
+    target.setAttribute('data-modai-tools-installed', '1');
+
+    target.addEventListener('elevenlabs-convai:call', function(evt){
+      const cfg = (evt && evt.detail && evt.detail.config) || (evt.detail.config = {});
+      cfg.clientTools = cfg.clientTools || {};
+      cfg.clientTools.speechAnalysis = function(payload){
+        try { renderSpeechAnalysis(payload); }
+        catch(e){ console.error('[speechAnalysis] render error:', e); }
+      };
+      // legacy
+      cfg.clientTools.yourChallenge = function(args){ try { renderTranscript(args); } catch(e){} };
+      cfg.clientTools.challengeFeedback = function(payload){ try { renderFeedback(payload); } catch(e){} };
+    });
+  }
+
+  function attachDocumentFallback(){
+    if(document._modaiDocListenerInstalled) return;
+    document._modaiDocListenerInstalled = true;
+    document.addEventListener('elevenlabs-convai:call', function(evt){
+      const cfg = (evt && evt.detail && evt.detail.config) || (evt.detail.config = {});
+      cfg.clientTools = cfg.clientTools || {};
+      if(!cfg.clientTools.speechAnalysis){
+        cfg.clientTools.speechAnalysis = function(payload){ try { renderSpeechAnalysis(payload); } catch(e){} };
+      }
+      if(!cfg.clientTools.yourChallenge){
+        cfg.clientTools.yourChallenge = function(args){ try { renderTranscript(args); } catch(e){} };
+      }
+      if(!cfg.clientTools.challengeFeedback){
+        cfg.clientTools.challengeFeedback = function(payload){ try { renderFeedback(payload); } catch(e){} };
+      }
+    }, true);
+  }
+
+  function boot(){
+    attachDocumentFallback();
+    const widget = document.querySelector('elevenlabs-convai');
+    if(widget) attachListener(widget);
+    const mo = new MutationObserver((muts)=>{
+      muts.forEach(m=>{
+        (m.addedNodes||[]).forEach(node=>{
+          if(node && node.nodeType === 1){
+            if(node.matches && node.matches('elevenlabs-convai')) attachListener(node);
+            const found = node.querySelector && node.querySelector('elevenlabs-convai');
+            if(found) attachListener(found);
+          }
+        });
+      });
+    });
+    mo.observe(document.documentElement, {childList:true, subtree:true});
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+
+  // Manual test helper (kept)
   window.MODai_renderSpeechAnalysis = renderSpeechAnalysis;
 })();
