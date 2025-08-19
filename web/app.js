@@ -30,6 +30,37 @@
     return html;
   }
 
+  // ---------- Validator (lightweight) ----------
+  function validatePayload(p){
+    const errs = [];
+    const needType = (obj, key, type) => {
+      const v = obj?.[key];
+      const ok = (type === 'array') ? Array.isArray(v) : typeof v === type;
+      if (!ok) errs.push(`Missing or wrong type: ${key} (${type})`);
+    };
+    if (!p || typeof p !== 'object') { errs.push('payload not an object'); return errs; }
+
+    needType(p, 'transcript', 'string');
+
+    needType(p, 'content', 'object');
+    needType(p.content || {}, 'clue_words_used', 'array');
+    needType(p.content || {}, 'clue_words_missed', 'array');
+    needType(p.content || {}, 'used_count', 'number');
+    needType(p.content || {}, 'score', 'number');
+
+    needType(p, 'delivery', 'object');
+    needType(p.delivery || {}, 'fillers', 'array');
+    needType(p.delivery || {}, 'filler_count', 'number');
+    needType(p.delivery || {}, 'score', 'number');
+
+    needType(p, 'proficiency', 'object');
+    if (!Array.isArray(p.proficiency?.grammar_errors)) errs.push('grammar_errors must be an array');
+    needType(p.proficiency || {}, 'score', 'number');
+
+    // total_score optional
+    return errs;
+  }
+
   // Gauges
   function gaugeCircumference(gauge){
     const rEl = gauge && gauge.querySelector('circle.bar');
@@ -55,6 +86,10 @@
 
   // ---------- Renderer (Option A1) ----------
   function renderSpeechAnalysis(payload){
+    // Validate first
+    const problems = validatePayload(payload);
+    if (problems.length) console.warn('[schema-validate]', problems);
+
     if(!payload || typeof payload !== 'object'){
       console.warn('[speechAnalysis] Invalid payload', payload);
       return;
@@ -107,7 +142,7 @@
       fb.innerHTML = missedHTML + fillerHTML;
     }
 
-    // Errors (bullets)
+    // Errors (bullets) — labels bolded
     const gfBox = $('#grammar_fix');
     if(gfBox){
       if(grammarErrs.length){
@@ -116,7 +151,10 @@
           const y = sanitizeHTML(String(e?.you_said || ''));
           const c = sanitizeHTML(String(e?.correction || ''));
           const x = sanitizeHTML(e?.explanation || '');
-          return `<li><div>You said "${y}". Correction → "${c}".</div><div><em>${t} error. ${x}</em></div></li>`;
+          return `<li>
+            <div><strong>You said</strong> "${y}". <strong>Correction</strong> → "${c}".</div>
+            <div><em>${t} error. ${x}</em></div>
+          </li>`;
         }).join('');
         gfBox.innerHTML = `<div class="fb-row"><strong>Errors:</strong></div><ul class="fix-list">${items}</ul>`;
       } else {
