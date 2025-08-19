@@ -61,7 +61,29 @@
     return errs;
   }
 
-  // Gauges
+  // ---------- Minimal diff between you_said and correction ----------
+  // Example: you="I goes to school", corr="I go to school" -> ["goes"]
+  function extractChangedFragment(you, corr){
+    you  = String(you  ?? '');
+    corr = String(corr ?? '');
+    if(!you) return [];
+    if(!corr) return [you];
+
+    let start = 0;
+    const yLen = you.length, cLen = corr.length;
+
+    while (start < yLen && start < cLen && you[start] === corr[start]) start++;
+
+    let endY = yLen - 1, endC = cLen - 1;
+    while (endY >= start && endC >= start && you[endY] === corr[endC]) { endY--; endC--; }
+
+    const frag = you.slice(start, endY + 1);
+    const trimmed = frag.trim();
+    if (!trimmed) return [you]; // identical strings fallback
+    return [trimmed];
+  }
+
+  // ---------- Gauges ----------
   function gaugeCircumference(gauge){
     const rEl = gauge && gauge.querySelector('circle.bar');
     const r   = Number(rEl && rEl.getAttribute('r')) || 50;
@@ -84,9 +106,8 @@
     });
   }
 
-  // ---------- Renderer (Option A1) ----------
+  // ---------- Renderer ----------
   function renderSpeechAnalysis(payload){
-    // Validate first
     const problems = validatePayload(payload);
     if (problems.length) console.warn('[schema-validate]', problems);
 
@@ -121,11 +142,16 @@
     const totalLine = $('#total_score_line');
     if(totalLine) totalLine.textContent = `Total Score: ${totalScore}/30`;
 
-    // 2) Transcript (use exact span given in you_said)
+    // 2) Transcript (highlight only the changed error fragment)
     const tEl = $('#user_transcript');
     if(tEl){
       let safe = sanitizeHTML(transcript || 'Your speaking challenge will appear here:');
-      const errFrags = grammarErrs.map(e => String(e?.you_said || '')).filter(Boolean);
+
+      const errFrags = grammarErrs
+        .flatMap(e => extractChangedFragment(String(e?.you_said || ''), String(e?.correction || '')))
+        .filter(Boolean);
+
+      // Order: errors → fillers → clue words
       safe = highlightFragments(safe, errFrags, 'hl-proficiency');
       safe = highlightFragments(safe, fillers, 'hl-delivery');
       safe = highlightFragments(safe, cluesUsed, 'hl-content');
@@ -142,7 +168,7 @@
       fb.innerHTML = missedHTML + fillerHTML;
     }
 
-    // Errors (bullets) — labels bolded
+    // 4) Errors list (labels bolded)
     const gfBox = $('#grammar_fix');
     if(gfBox){
       if(grammarErrs.length){
